@@ -1,16 +1,13 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.Set;
 
 public class AFDLenguajeGrafico {
 
     enum State {
-        START,      // q0
-        C, R, L, T, P, SC, FC, SW, FS, BG, CLS, END, TR, RT, SCAL, SELEC,
-        SPACE,
-        NUM,
-        TEXT,
-        HASH,
-        COLOR,
-        ACCEPT
+        START, C, R, L, T, P, SC, FC, SW, FS, BG, CLS, END, TR, RT, SCAL, SELEC,
+        SPACE, COLOR, ACCEPT
     }
 
     static final Set<String> COMMANDS = Set.of(
@@ -18,90 +15,98 @@ public class AFDLenguajeGrafico {
             "BG", "CLS", "END", "TR", "RT", "SCAL", "SELEC"
     );
 
-    public static boolean accepts(String input) {
+    public static ValidationResult validate(String input) {
         String[] tokens = input.trim().split("\\s+");
-        if (tokens.length == 0) return false;
+        if (tokens.length == 0) return ValidationResult.error("E007", "Entrada vacía");
 
         State state = State.START;
-        int i = 0;
         int tokenIndex = 0;
+        State currentCommand = null; // guardamos el comando actual
 
         while (true) {
             switch (state) {
                 case START:
-                    if (tokenIndex >= tokens.length) return false;
+                    if (tokenIndex >= tokens.length) return ValidationResult.error("E007", "Entrada vacía");
                     String cmd = tokens[tokenIndex];
-                    if (!COMMANDS.contains(cmd)) return false;
-                    state = State.valueOf(cmd);  // transita a estado C, R, L, etc.
+                    if (!COMMANDS.contains(cmd)) return ValidationResult.error("E001", "Comando no reconocido");
+                    currentCommand = State.valueOf(cmd); // guardamos el comando
+                    state = currentCommand;
                     tokenIndex++;
                     break;
 
                 case END:
-                    return tokenIndex == tokens.length;
-
                 case CLS:
-                    state = State.ACCEPT;
-                    break;
+                    return tokenIndex == tokens.length
+                            ? ValidationResult.ok()
+                            : ValidationResult.error("E002", "Se esperaba fin de línea");
 
-                case C: case R: case L: case T: case P:
+                case C: case R: case L: case P:
                 case SW: case FS: case TR: case RT:
                 case SCAL: case SELEC:
+                    state = State.SPACE;
+                    break;
+
                 case SC: case FC: case BG:
                     state = State.SPACE;
                     break;
 
-                case SPACE:
-                    if (tokenIndex >= tokens.length) return false;
-                    String param = tokens[tokenIndex];
-
-                    if (stateFromPreviousCommandIsColor(state)) {
-                        if (param.startsWith("#")) {
-                            state = State.HASH;
-                        } else return false;
-                    } else if (isNumeric(param)) {
-                        state = State.NUM;
-                    } else {
-                        state = State.TEXT;
+                case T:
+                    if (tokenIndex + 2 > tokens.length) return ValidationResult.error("E005", "Faltan coordenadas o texto en comando T");
+                    if (!isNumeric(tokens[tokenIndex]) || !isNumeric(tokens[tokenIndex + 1]))
+                        return ValidationResult.error("E005", "Coordenadas no válidas en comando T");
+                    tokenIndex += 2;
+                    StringBuilder texto = new StringBuilder();
+                    while (tokenIndex < tokens.length) {
+                        texto.append(tokens[tokenIndex++]).append(" ");
                     }
-                    break;
+                    String textoFinal = texto.toString().trim();
+                    if (!textoFinal.startsWith("\"") || !textoFinal.endsWith("\""))
+                        return ValidationResult.error("E008", "Texto en T debe iniciar y terminar con comillas");
+                    return ValidationResult.ok();
 
-                case NUM:
+                case SPACE:
+                    if (tokenIndex >= tokens.length)
+                        return currentCommand == State.T
+                                ? ValidationResult.error("E007", "Falta texto en comando T")
+                                : ValidationResult.error("E005", "Faltan parámetros");
+
+                    if (currentCommand == State.SC || currentCommand == State.FC || currentCommand == State.BG) {
+                        state = State.COLOR;
+                        break;
+                    }
+
+                    String param = tokens[tokenIndex];
+                    if (!isNumeric(param)) return ValidationResult.error("E005", "Parámetro numérico inválido");
                     while (tokenIndex < tokens.length && isNumeric(tokens[tokenIndex])) {
                         tokenIndex++;
                     }
-                    if (tokenIndex == tokens.length) {
-                        state = State.ACCEPT;
-                    } else {
-                        return false;
-                    }
-                    break;
-
-                case TEXT:
-                    // Considera todo el texto restante como válido
-                    tokenIndex = tokens.length;
                     state = State.ACCEPT;
                     break;
 
-                case HASH:
-                    String colorCode = tokens[tokenIndex];
-                    if (!colorCode.startsWith("#") || colorCode.length() != 7) return false;
-                    if (!isHexColor(colorCode.substring(1))) return false;
-                    tokenIndex++;
-                    state = State.COLOR;
-                    break;
-
                 case COLOR:
+                    if (tokenIndex >= tokens.length)
+                        return ValidationResult.error("E005", "Falta parámetro color");
+
+                    String colorParam = tokens[tokenIndex];
+                    if (!colorParam.startsWith("#"))
+                        return ValidationResult.error("E004", "Falta símbolo '#' en color");
+                    if (colorParam.length() != 7 || !isHexColor(colorParam.substring(1)))
+                        return ValidationResult.error("E003", "Color hexadecimal inválido");
+                    tokenIndex++;
                     state = tokenIndex == tokens.length ? State.ACCEPT : State.START;
                     break;
 
                 case ACCEPT:
-                    return tokenIndex == tokens.length;
+                    return tokenIndex == tokens.length
+                            ? ValidationResult.ok()
+                            : ValidationResult.error("E002", "Sobran parámetros");
 
                 default:
-                    return false;
+                    return ValidationResult.error("E009", "Símbolo no permitido");
             }
         }
     }
+
 
     private static boolean isHexColor(String s) {
         return s.matches("[0-9a-fA-F]{6}");
@@ -116,33 +121,47 @@ public class AFDLenguajeGrafico {
     }
 
     public static void main(String[] args) {
-        String[] examples = {
-                "C 100 100 50",
-                "R 150 150 80 60",
-                "L 0 0 200 200",
-                "T 120 130 Hola mundo",
-                "P 50 50",
-                "SC #FF00AA",
-                "FC #00FF00",
-                "SW 3",
-                "FS 14",
-                "SELEC 90 90 250 250",
-                "TR -10 20",
-                "RT 45.5",
-                "SCAL 1.2 1.2",
-                "BG #FFFFFF",
-                "CLS",
-                "END",
-                // Invalid examples
-                "C10010050",
-                "BG #FFF",
-                "SC FF00AA",
-                "SC #12345",
-                "X 1 2 3"
-        };
+        String path = "C:\\Universidad\\Semestre V\\Compiladores\\entradas.txt";
 
-        for (String ex : examples) {
-            System.out.printf("\"%s\" => %s%n", ex, accepts(ex) ? "✔ Válido" : "✘ Inválido");
+        try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+            String line;
+            int lineNumber = 1;
+            while ((line = br.readLine()) != null) {
+                ValidationResult result = validate(line);
+                if (result.isValid()) {
+                    System.out.printf("Línea %02d: \"%s\" => ✔ Válido%n", lineNumber, line);
+                } else {
+                    System.out.printf("Línea %02d: \"%s\" => ✘ %s - %s%n",
+                            lineNumber, line, result.code, result.message);
+                }
+                lineNumber++;
+            }
+        } catch (IOException e) {
+            System.err.println("Error al leer el archivo: " + e.getMessage());
+        }
+    }
+
+    static class ValidationResult {
+        final boolean valid;
+        final String code;
+        final String message;
+
+        private ValidationResult(boolean valid, String code, String message) {
+            this.valid = valid;
+            this.code = code;
+            this.message = message;
+        }
+
+        static ValidationResult ok() {
+            return new ValidationResult(true, "", "");
+        }
+
+        static ValidationResult error(String code, String message) {
+            return new ValidationResult(false, code, message);
+        }
+
+        boolean isValid() {
+            return valid;
         }
     }
 }
