@@ -1,0 +1,28 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: org.xtext.example.dibujos1
+Bundle-ManifestVersion: 2
+Bundle-Name: org.xtext.example.dibujos1
+Bundle-Vendor: My Company
+Bundle-Version: 1.0.0.qualifier
+Bundle-SymbolicName: org.xtext.example.dibujos1; singleton:=true
+Bundle-ActivationPolicy: lazy
+Require-Bundle: org.eclipse.xtext,
+ org.eclipse.xtext.xbase,
+ org.eclipse.equinox.common;bundle-version="3.19.0",
+ org.eclipse.emf.ecore,
+ org.eclipse.xtext.xbase.lib;bundle-version="2.38.0",
+ org.eclipse.emf.common,
+ org.antlr.runtime;bundle-version="[3.2.0,3.2.1)"
+Bundle-RequiredExecutionEnvironment: JavaSE-21
+Export-Package: org.xtext.example.dibujos1,
+ org.xtext.example.dibujos1.dibujos1.impl,
+ org.xtext.example.dibujos1.parser.antlr,
+ org.xtext.example.dibujos1.dibujos1.util,
+ org.xtext.example.dibujos1.validation,
+ org.xtext.example.dibujos1.generator,
+ org.xtext.example.dibujos1.parser.antlr.internal,
+ org.xtext.example.dibujos1.dibujos1,
+ org.xtext.example.dibujos1.serializer,
+ org.xtext.example.dibujos1.services,
+ org.xtext.example.dibujos1.scoping
+Import-Package: org.apache.log4j

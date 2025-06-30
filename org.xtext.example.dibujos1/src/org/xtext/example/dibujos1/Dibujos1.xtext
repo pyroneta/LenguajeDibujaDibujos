@@ -1,0 +1,31 @@
+grammar org.xtext.example.dibujos1.Dibujos1 with org.eclipse.xtext.common.Terminals
+
+generate dibujos1 "http://www.xtext.org/example/dibujos1/Dibujos1"
+
+Modelo:
+    instrucciones+=Instruccion*
+;
+
+Instruccion:
+      Circulo
+    | Rectangulo
+    | Linea
+    | Texto
+    | Punto
+    | Color
+    | Estilo
+    | Fuente
+    
+;
+
+Circulo:     'C' x=INT y=INT r=INT;
+Rectangulo:  'R' x1=INT y1=INT x2=INT y2=INT x3=INT y3=INT x4=INT y4=INT;
+Linea:       'L' x1=INT y1=INT x2=INT y2=INT;
+Texto:       'T' x=INT y=INT texto=STRING;
+Punto:       'P' x=INT y=INT;
+Color:       ('SC' | 'FC' | 'BG') color=HEXCOLOR;
+Estilo:      'SW' valor=INT;
+Fuente:      'FS' valor=INT;
+
+
+terminal HEXCOLOR: '#' ('A'..'F'|'a'..'f'|'0'..'9')+;
